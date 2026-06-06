@@ -57,3 +57,86 @@ class ProjectDetailResponse(BaseModel):
     project_id: str
     plan: BookPlan
     saved_path: str
+
+
+class ChapterCatalogRequest(BaseModel):
+    """生成章节目录的请求。"""
+
+    volume_index: int = Field(default=1, ge=1, description="第几卷，从 1 开始")
+    total_chapters: int = Field(default=10, ge=1, le=50, description="本次生成多少章")
+    extra_requirements: str = Field(default="", description="额外要求，例如前三章更强钩子")
+
+
+class ChapterBrief(BaseModel):
+    chapter_no: int
+    title: str
+    summary: str
+    hook: str
+
+
+class ChapterCatalog(BaseModel):
+    volume_index: int
+    volume_title: str
+    chapters: List[ChapterBrief]
+
+
+class ChapterCatalogResponse(BaseModel):
+    project_id: str
+    catalog: ChapterCatalog
+    saved_path: str
+
+
+class ChapterOutlineRequest(BaseModel):
+    """生成单章大纲的请求。"""
+
+    chapter_no: int = Field(..., ge=1, description="要生成第几章大纲")
+    extra_requirements: str = Field(default="", description="额外要求")
+
+
+class ChapterOutline(BaseModel):
+    chapter_no: int
+    title: str
+    goal: str
+    conflict: str
+    key_events: List[str]
+    characters: List[str]
+    ending_hook: str
+    continuity_notes: List[str]
+
+
+class ChapterOutlineResponse(BaseModel):
+    project_id: str
+    outline: ChapterOutline
+    saved_path: str
+
+
+class ChapterDraftRequest(BaseModel):
+    """生成单章正文的请求。"""
+
+    chapter_no: int = Field(..., ge=1, description="要生成第几章正文")
+    target_words: int = Field(default=1500, ge=500, le=6000, description="目标字数")
+    extra_requirements: str = Field(default="", description="额外要求")
+
+
+class ChapterDraft(BaseModel):
+    chapter_no: int
+    title: str
+    content: str
+    summary: str
+    continuity_updates: List[str]
+
+
+class ChapterDraftResponse(BaseModel):
+    project_id: str
+    draft: ChapterDraft
+    saved_path: str
+
+
+class ChapterStatusSummary(BaseModel):
+    """章节列表里展示的状态。"""
+
+    chapter_no: int
+    title: str
+    summary: str
+    has_outline: bool
+    has_draft: bool
