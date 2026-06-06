@@ -29,10 +29,23 @@ from app.storage import (
     save_chapter_outline,
 )
 
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI(
     title="NovelForge API",
     description="AI 小说创作工作台后端 MVP",
     version="0.3.0",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://127.0.0.1:5173",
+        "http://localhost:5173",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 llm_service = LLMService()
