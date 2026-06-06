@@ -1,6 +1,10 @@
+from pathlib import Path
 from typing import List
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.llm_service import LLMService, LLMServiceError
 from app.schemas import (
@@ -13,9 +17,13 @@ from app.schemas import (
     ChapterOutlineRequest,
     ChapterOutlineResponse,
     ChapterStatusSummary,
+    LLMConnectionTestResponse,
+    LLMSettingsResponse,
+    LLMSettingsUpdate,
     ProjectDetailResponse,
     ProjectSummary,
 )
+from app.settings_service import get_llm_settings_response, save_llm_settings
 from app.storage import (
     list_chapters,
     list_projects,
@@ -29,12 +37,10 @@ from app.storage import (
     save_chapter_outline,
 )
 
-from fastapi.middleware.cors import CORSMiddleware
-
 app = FastAPI(
     title="NovelForge API",
     description="AI 小说创作工作台后端 MVP",
-    version="0.3.0",
+    version="0.5.0",
 )
 
 app.add_middleware(
@@ -42,6 +48,8 @@ app.add_middleware(
     allow_origins=[
         "http://127.0.0.1:5173",
         "http://localhost:5173",
+        "http://127.0.0.1:8000",
+        "http://localhost:8000",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -54,6 +62,34 @@ llm_service = LLMService()
 @app.get("/health")
 def health_check():
     return {"status": "ok", "message": "NovelForge API is running."}
+
+
+@app.get("/api/settings/llm", response_model=LLMSettingsResponse)
+def get_llm_settings():
+    """读取当前模型配置状态。不会返回完整 API Key。"""
+
+    return get_llm_settings_response()
+
+
+@app.post("/api/settings/llm", response_model=LLMSettingsResponse)
+def update_llm_settings(payload: LLMSettingsUpdate):
+    """保存模型配置到 apps/api/local/llm_config.json。"""
+
+    try:
+        return save_llm_settings(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/settings/llm/test", response_model=LLMConnectionTestResponse)
+def test_llm_settings():
+    """测试当前模型连接。"""
+
+    try:
+        message = llm_service.test_connection()
+        return LLMConnectionTestResponse(ok=True, message=message)
+    except LLMServiceError as exc:
+        return LLMConnectionTestResponse(ok=False, message=str(exc))
 
 
 @app.post("/api/director/book-plan", response_model=BookPlanResponse)
@@ -114,7 +150,6 @@ def get_chapters(project_id: str):
     """查看章节列表，以及每章是否已经生成大纲和正文。"""
 
     try:
-        # 先确认项目存在
         load_book_plan(project_id)
         return list_chapters(project_id)
     except FileNotFoundError as exc:
@@ -211,3 +246,28 @@ def get_chapter_draft(project_id: str, chapter_no: int):
         )
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+# ---------------------------
+# React 前端静态文件托管
+# ---------------------------
+# setup-novelforge.bat 会执行 npm run build，生成 apps/web/dist。
+# 若 dist 存在，访问 http://127.0.0.1:8000 会直接显示前端工作台。
+APPS_ROOT = Path(__file__).resolve().parents[2]
+FRONTEND_DIST = APPS_ROOT / "web" / "dist"
+FRONTEND_ASSETS = FRONTEND_DIST / "assets"
+
+if FRONTEND_DIST.exists():
+    if FRONTEND_ASSETS.exists():
+        app.mount("/assets", StaticFiles(directory=str(FRONTEND_ASSETS)), name="assets")
+
+    @app.get("/")
+    def serve_frontend_index():
+        return FileResponse(FRONTEND_DIST / "index.html")
+
+    @app.get("/{full_path:path}")
+    def serve_frontend_spa(full_path: str):
+        target = FRONTEND_DIST / full_path
+        if target.is_file():
+            return FileResponse(target)
+        return FileResponse(FRONTEND_DIST / "index.html")

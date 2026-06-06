@@ -52,26 +52,67 @@ export type ChapterCatalogItem = {
   has_draft?: boolean;
 };
 
-export type ChapterCatalogResponse = {
-  project_id: string;
+export type ChapterCatalog = {
   volume_index: number;
   volume_title: string;
   chapters: ChapterCatalogItem[];
+};
+
+export type ChapterCatalogResponse = {
+  project_id: string;
+  catalog: ChapterCatalog;
   saved_path: string;
+};
+
+export type ChapterOutline = {
+  chapter_no: number;
+  title: string;
+  goal: string;
+  conflict: string;
+  key_events: string[];
+  characters: string[];
+  ending_hook: string;
+  continuity_notes: string[];
 };
 
 export type ChapterOutlineResponse = {
   project_id: string;
+  outline: ChapterOutline;
+  saved_path: string;
+};
+
+export type ChapterDraft = {
   chapter_no: number;
   title: string;
-  outline: unknown;
-  saved_path: string;
+  content: string;
+  summary: string;
+  continuity_updates: string[];
 };
 
 export type ChapterDraftResponse = {
   project_id: string;
-  chapter_no: number;
-  title: string;
-  draft: string;
+  draft: ChapterDraft;
   saved_path: string;
+};
+
+export type LLMSettings = {
+  provider: string;
+  model: string;
+  base_url: string;
+  has_api_key: boolean;
+  api_key_preview: string;
+  source: string;
+  config_path: string;
+};
+
+export type LLMSettingsUpdate = {
+  provider: string;
+  api_key?: string;
+  model: string;
+  base_url: string;
+};
+
+export type LLMConnectionTestResponse = {
+  ok: boolean;
+  message: string;
 };

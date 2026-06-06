@@ -140,3 +140,29 @@ class ChapterStatusSummary(BaseModel):
     summary: str
     has_outline: bool
     has_draft: bool
+
+
+class LLMSettingsUpdate(BaseModel):
+    """网页模型设置表单。"""
+
+    provider: str = Field(default="deepseek", description="模型服务商：mock 或 deepseek")
+    api_key: str | None = Field(default=None, description="API Key。为空时保留旧 Key。")
+    model: str = Field(default="deepseek-chat", description="模型名称")
+    base_url: str = Field(default="https://api.deepseek.com", description="OpenAI-compatible Base URL")
+
+
+class LLMSettingsResponse(BaseModel):
+    """返回给前端的模型配置状态。不会返回完整 API Key。"""
+
+    provider: str
+    model: str
+    base_url: str
+    has_api_key: bool
+    api_key_preview: str
+    source: str
+    config_path: str
+
+
+class LLMConnectionTestResponse(BaseModel):
+    ok: bool
+    message: str

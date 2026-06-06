@@ -4,11 +4,16 @@ import type {
   ChapterCatalogResponse,
   ChapterDraftResponse,
   ChapterOutlineResponse,
+  LLMConnectionTestResponse,
+  LLMSettings,
+  LLMSettingsUpdate,
   ProjectDetailResponse,
   ProjectSummary
 } from './types';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000';
+// 开发模式可在 apps/web/.env 中设置 VITE_API_BASE_URL=http://127.0.0.1:8000。
+// 用户模式下，前端由 FastAPI 托管，直接使用同源相对路径。
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -31,6 +36,24 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   }
 
   return response.json() as Promise<T>;
+}
+
+export function getLLMSettings(): Promise<LLMSettings> {
+  return request<LLMSettings>('/api/settings/llm');
+}
+
+export function saveLLMSettings(payload: LLMSettingsUpdate): Promise<LLMSettings> {
+  return request<LLMSettings>('/api/settings/llm', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+}
+
+export function testLLMSettings(): Promise<LLMConnectionTestResponse> {
+  return request<LLMConnectionTestResponse>('/api/settings/llm/test', {
+    method: 'POST',
+    body: JSON.stringify({})
+  });
 }
 
 export function createBookPlan(payload: {

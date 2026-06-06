@@ -3,7 +3,7 @@ from json import JSONDecodeError
 
 from openai import OpenAI
 
-from app.config import settings
+from app.settings_service import EffectiveLLMConfig, get_effective_llm_config
 from app.schemas import (
     BookPlan,
     BookPlanRequest,
@@ -29,24 +29,26 @@ class LLMService:
     """
 
     def generate_book_plan(self, request: BookPlanRequest) -> BookPlan:
-        provider = settings.llm_provider.lower().strip()
+        config = self._current_config()
+        provider = config.provider
         if provider == "mock":
             return self._mock_book_plan(request)
         if provider == "deepseek":
             return self._deepseek_book_plan(request)
-        raise LLMServiceError(f"不支持的 LLM_PROVIDER：{settings.llm_provider}")
+        raise LLMServiceError(f"不支持的模型服务商：{provider}")
 
     def generate_chapter_catalog(
         self,
         plan: BookPlan,
         request: ChapterCatalogRequest,
     ) -> ChapterCatalog:
-        provider = settings.llm_provider.lower().strip()
+        config = self._current_config()
+        provider = config.provider
         if provider == "mock":
             return self._mock_chapter_catalog(plan, request)
         if provider == "deepseek":
             return self._deepseek_chapter_catalog(plan, request)
-        raise LLMServiceError(f"不支持的 LLM_PROVIDER：{settings.llm_provider}")
+        raise LLMServiceError(f"不支持的模型服务商：{provider}")
 
     def generate_chapter_outline(
         self,
@@ -54,12 +56,13 @@ class LLMService:
         catalog: ChapterCatalog,
         request: ChapterOutlineRequest,
     ) -> ChapterOutline:
-        provider = settings.llm_provider.lower().strip()
+        config = self._current_config()
+        provider = config.provider
         if provider == "mock":
             return self._mock_chapter_outline(plan, catalog, request)
         if provider == "deepseek":
             return self._deepseek_chapter_outline(plan, catalog, request)
-        raise LLMServiceError(f"不支持的 LLM_PROVIDER：{settings.llm_provider}")
+        raise LLMServiceError(f"不支持的模型服务商：{provider}")
 
     def generate_chapter_draft(
         self,
@@ -68,23 +71,58 @@ class LLMService:
         outline: ChapterOutline,
         request: ChapterDraftRequest,
     ) -> ChapterDraft:
-        provider = settings.llm_provider.lower().strip()
+        config = self._current_config()
+        provider = config.provider
         if provider == "mock":
             return self._mock_chapter_draft(plan, catalog, outline, request)
         if provider == "deepseek":
             return self._deepseek_chapter_draft(plan, catalog, outline, request)
-        raise LLMServiceError(f"不支持的 LLM_PROVIDER：{settings.llm_provider}")
+        raise LLMServiceError(f"不支持的模型服务商：{provider}")
 
-    def _deepseek_client(self) -> OpenAI:
-        if not settings.deepseek_api_key or settings.deepseek_api_key == "your_deepseek_api_key_here":
+    def _current_config(self) -> EffectiveLLMConfig:
+        return get_effective_llm_config()
+
+    def test_connection(self) -> str:
+        """测试当前模型配置是否可用。"""
+
+        config = self._current_config()
+        if config.provider == "mock":
+            return "当前为 mock 模式，不会调用真实模型。"
+        if config.provider != "deepseek":
+            raise LLMServiceError(f"不支持的模型服务商：{config.provider}")
+
+        try:
+            client = self._deepseek_client(config)
+            response = client.chat.completions.create(
+                model=config.model,
+                messages=[
+                    {"role": "system", "content": "你只返回 JSON。"},
+                    {"role": "user", "content": "请只返回 {\"ok\": true}。"},
+                ],
+                response_format={"type": "json_object"},
+                temperature=0,
+                max_tokens=50,
+            )
+            content = response.choices[0].message.content or ""
+            if not content.strip():
+                raise LLMServiceError("模型返回为空。")
+            return "DeepSeek 连接成功。"
+        except Exception as exc:
+            if isinstance(exc, LLMServiceError):
+                raise
+            raise LLMServiceError(f"DeepSeek 连接失败：{exc}") from exc
+
+    def _deepseek_client(self, config: EffectiveLLMConfig | None = None) -> OpenAI:
+        config = config or self._current_config()
+        if not config.api_key or config.api_key == "your_deepseek_api_key_here":
             raise LLMServiceError(
-                "未配置 DEEPSEEK_API_KEY。请打开 apps/api/.env，填入真实 DeepSeek API Key，"
-                "或把 LLM_PROVIDER 改回 mock。"
+                "未配置 DeepSeek API Key。请在网页右上角“模型设置”中填写 API Key，"
+                "或把模型服务商改为 mock。"
             )
 
         return OpenAI(
-            api_key=settings.deepseek_api_key,
-            base_url=settings.deepseek_base_url,
+            api_key=config.api_key,
+            base_url=config.base_url,
         )
 
     def _deepseek_json(
@@ -97,9 +135,10 @@ class LLMService:
         """调用 DeepSeek，并要求模型只返回 JSON。"""
 
         try:
-            client = self._deepseek_client()
+            config = self._current_config()
+            client = self._deepseek_client(config)
             response = client.chat.completions.create(
-                model=settings.deepseek_model,
+                model=config.model,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},

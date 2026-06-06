@@ -8,15 +8,26 @@ __pycache__/
 .venv/
 venv/
 env/
+apps/api/.venv/
 
 # Environment variables
 .env
 .env.local
 .env.*.local
+apps/api/.env
 
-# Local data
+# Local user config: API Key 等用户本地配置
+apps/api/local/
+
+# Local generated novel data
 apps/api/data/projects/
 apps/api/data/chroma/
+
+# Frontend
+node_modules/
+apps/web/node_modules/
+dist/
+apps/web/dist/
 
 # Logs
 *.log
@@ -26,8 +37,3 @@ apps/api/data/chroma/
 Thumbs.db
 .vscode/
 .idea/
-
-# Node
-node_modules/
-dist/
-build/
